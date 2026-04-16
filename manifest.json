@@ -1,0 +1,29 @@
+{
+  "name": "眠境 · Sleepscape",
+  "short_name": "眠境",
+  "description": "助眠白噪音 · 轻音乐 · 环境拟声 — 安静入眠",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#0a0e1a",
+  "theme_color": "#0a0e1a",
+  "orientation": "portrait-primary",
+  "lang": "zh-CN",
+  "scope": "./",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["health", "lifestyle", "music"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}

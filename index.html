@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>眠境 · Sleepscape</title>
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#0a0e1a" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="眠境" />
+  <meta name="description" content="100款助眠声音 · 白噪音 · 环境拟声 — 安静入眠" />
+  <style>
+    /* ─────────────────────────────────────────
+       Variables & Reset
+    ───────────────────────────────────────── */
+    :root {
+      --bg:        #0a0e1a;
+      --bg2:       #111827;
+      --card:      rgba(255,255,255,0.07);
+      --card-hover:rgba(255,255,255,0.12);
+      --border:    rgba(255,255,255,0.1);
+      --primary:   #7c9fff;
+      --accent:    #a78bfa;
+      --text:      #e8eaf0;
+      --text-dim:  #7b8494;
+      --radius:    18px;
+      --nav-h:     68px;
+      --safe-b:    env(safe-area-inset-bottom,0px);
+      --safe-t:    env(safe-area-inset-top,0px);
+    }
+    *,*::before,*::after{box-sizing:border-box;margin:0;padding:0;}
+    html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+      font-family:-apple-system,"PingFang SC","Noto Sans SC",sans-serif;
+      -webkit-font-smoothing:antialiased;user-select:none;}
+
+    /* ─────────────────────────────────────────
+       App Shell
+    ───────────────────────────────────────── */
+    #app{display:flex;flex-direction:column;width:100%;height:100%;position:relative;overflow:hidden;}
+
+    #ambient-bg{
+      position:fixed;inset:0;z-index:0;
+      background:radial-gradient(ellipse at 30% 20%,#1a2456 0%,transparent 60%),
+                 radial-gradient(ellipse at 70% 80%,#0d1b3e 0%,transparent 60%),var(--bg);
+      transition:background 2.5s ease;
+    }
+    #ambient-bg::after{
+      content:'';position:absolute;inset:0;
+      background:url("data:image/svg+xml,%3Csvg width='400' height='400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.04'/%3E%3C/svg%3E");
+      opacity:.35;pointer-events:none;
+    }
+
+    #pages{position:relative;z-index:1;flex:1;overflow:hidden;}
+    .page{
+      position:absolute;inset:0;
+      overflow-y:auto;
+      padding:0 0 calc(var(--nav-h) + var(--safe-b) + 12px);
+      opacity:0;pointer-events:none;
+      transform:translateY(10px);
+      transition:opacity .3s ease,transform .3s ease;
+      -webkit-overflow-scrolling:touch;
+    }
+    .page.active{opacity:1;pointer-events:all;transform:translateY(0);}
+
+    /* ─────────────────────────────────────────
+       Bottom Nav
+    ───────────────────────────────────────── */
+    #nav{
+      position:relative;z-index:10;
+      height:calc(var(--nav-h) + var(--safe-b));
+      padding-bottom:var(--safe-b);
+      background:rgba(10,14,26,.88);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      border-top:1px solid var(--border);
+      display:flex;align-items:stretch;
+    }
+    .nav-btn{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
+      background:none;border:none;color:var(--text-dim);cursor:pointer;
+      transition:color .25s;padding:0;font-size:10px;letter-spacing:.5px;
+    }
+    .nav-btn.active{color:var(--primary);}
+    .nav-btn svg{width:22px;height:22px;}
+
+    /* ─────────────────────────────────────────
+       Page Header
+    ───────────────────────────────────────── */
+    .page-header{padding:calc(var(--safe-t) + 52px) 20px 8px;}
+    .page-title{font-size:28px;font-weight:700;letter-spacing:-.5px;}
+    .page-subtitle{margin-top:4px;font-size:13px;color:var(--text-dim);}
+
+    /* ─────────────────────────────────────────
+       Search Bar
+    ───────────────────────────────────────── */
+    .search-wrap{
+      padding:8px 20px 0;
+      position:relative;
+    }
+    #search-input{
+      width:100%;
+      padding:11px 40px 11px 16px;
+      background:rgba(255,255,255,0.08);
+      border:1px solid var(--border);
+      border-radius:50px;
+      color:var(--text);
+      font-size:14px;
+      font-family:inherit;
+      outline:none;
+      transition:border-color .2s;
+    }
+    #search-input::placeholder{color:var(--text-dim);}
+    #search-input:focus{border-color:var(--primary);}
+    .search-icon{
+      position:absolute;right:32px;top:50%;transform:translateY(-50%);
+      color:var(--text-dim);pointer-events:none;
+    }
+    .search-icon svg{width:16px;height:16px;}
+
+    /* ─────────────────────────────────────────
+       Category Tabs
+    ───────────────────────────────────────── */
+    .cat-tabs-wrap{
+      overflow-x:auto;overflow-y:hidden;
+      -webkit-overflow-scrolling:touch;
+      scrollbar-width:none;
+      padding:12px 20px 4px;
+      display:flex;
+      gap:8px;
+      white-space:nowrap;
+    }
+    .cat-tabs-wrap::-webkit-scrollbar{display:none;}
+    #category-tabs{display:contents;}
+    .cat-tab{
+      display:inline-flex;align-items:center;gap:5px;
+      padding:8px 14px;
+      border-radius:50px;
+      border:1px solid var(--border);
+      background:var(--card);
+      color:var(--text-dim);
+      font-size:12px;
+      font-family:inherit;
+      cursor:pointer;
+      white-space:nowrap;
+      transition:all .2s;
+      flex-shrink:0;
+    }
+    .cat-tab.active{
+      background:rgba(124,159,255,.2);
+      border-color:var(--primary);
+      color:var(--primary);
+    }
+
+    /* ─────────────────────────────────────────
+       Sound Count Badge
+    ───────────────────────────────────────── */
+    .section-meta{
+      padding:12px 20px 10px;
+      display:flex;align-items:center;justify-content:space-between;
+    }
+    .section-meta-title{font-size:13px;color:var(--text-dim);font-weight:600;}
+    #sound-count-badge{
+      font-size:11px;
+      color:var(--text-dim);
+      background:var(--card);
+      border:1px solid var(--border);
+      padding:4px 10px;border-radius:50px;
+    }
+
+    /* ─────────────────────────────────────────
+       Sound Grid (3 columns on narrow screen)
+    ───────────────────────────────────────── */
+    .scene-grid{
+      display:grid;
+      grid-template-columns:repeat(3,1fr);
+      gap:10px;
+      padding:0 16px;
+    }
+    @media(min-width:420px){.scene-grid{grid-template-columns:repeat(3,1fr);}}
+    @media(min-width:640px){.scene-grid{grid-template-columns:repeat(4,1fr);}}
+
+    .scene-card{
+      position:relative;
+      aspect-ratio:1;
+      border-radius:16px;
+      overflow:hidden;
+      cursor:pointer;
+      box-shadow:0 6px 20px rgba(0,0,0,.4);
+      transition:transform .2s,box-shadow .2s;
+    }
+    .scene-card:active{transform:scale(.95);}
+    .sc-bg{position:absolute;inset:0;}
+    .sc-overlay{
+      position:absolute;inset:0;
+      background:linear-gradient(135deg,rgba(0,0,0,.15) 0%,rgba(0,0,0,.5) 100%);
+    }
+    .sc-content{position:absolute;bottom:10px;left:10px;}
+    .sc-emoji{font-size:22px;line-height:1;}
+    .sc-name{font-size:11px;font-weight:600;margin-top:4px;line-height:1.2;}
+    .scene-card.playing::after{
+      content:'';position:absolute;inset:0;
+      border-radius:16px;
+      border:2px solid var(--primary);
+      box-shadow:inset 0 0 12px rgba(124,159,255,.3);
+      animation:pulseBorder 2s infinite;
+    }
+    @keyframes pulseBorder{0%,100%{opacity:1;}50%{opacity:.4;}}
+
+    /* ─────────────────────────────────────────
+       Mini Player
+    ───────────────────────────────────────── */
+    #mini-player{
+      position:fixed;
+      left:12px;right:12px;
+      bottom:calc(var(--nav-h) + var(--safe-b) + 8px);
+      z-index:9;
+      background:rgba(18,23,45,.93);
+      backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);
+      border:1px solid var(--border);
+      border-radius:18px;
+      padding:10px 14px;
+      display:flex;align-items:center;gap:10px;
+      opacity:0;transform:translateY(20px);pointer-events:none;
+      transition:all .4s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 8px 32px rgba(0,0,0,.5);
+    }
+    #mini-player.visible{opacity:1;transform:translateY(0);pointer-events:all;}
+    #mini-player-icon{width:38px;height:38px;border-radius:10px;font-size:20px;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;}
+    #mini-player-info{flex:1;min-width:0;}
+    #mini-player-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    #mini-player-sub{font-size:11px;color:var(--text-dim);margin-top:2px;}
+    #mini-player-ctrl{display:flex;align-items:center;gap:8px;}
+    .ctrl-btn{
+      width:34px;height:34px;border-radius:50%;border:none;
+      background:rgba(255,255,255,.1);color:white;cursor:pointer;
+      display:flex;align-items:center;justify-content:center;transition:background .2s;
+    }
+    .ctrl-btn:active{background:rgba(255,255,255,.2);}
+    .ctrl-btn svg{width:16px;height:16px;}
+    #mini-vol-slider{
+      -webkit-appearance:none;width:60px;height:3px;
+      background:rgba(255,255,255,.2);border-radius:2px;outline:none;cursor:pointer;
+    }
+    #mini-vol-slider::-webkit-slider-thumb{
+      -webkit-appearance:none;width:13px;height:13px;border-radius:50%;background:var(--primary);
+    }
+
+    /* ─────────────────────────────────────────
+       Mixer Page
+    ───────────────────────────────────────── */
+    .mixer-list{padding:0 16px;}
+    .mixer-item{
+      display:flex;align-items:center;gap:12px;
+      background:var(--card);border:1px solid var(--border);
+      border-radius:14px;padding:12px 14px;margin-bottom:8px;
+      transition:border-color .2s,background .2s;
+    }
+    .mixer-item.active{
+      background:rgba(124,159,255,.1);
+      border-color:rgba(124,159,255,.4);
+    }
+    .mixer-icon{
+      width:40px;height:40px;border-radius:10px;font-size:20px;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    }
+    .mixer-info{flex:1;min-width:0;}
+    .mixer-name{font-size:13px;font-weight:600;}
+    .mixer-desc{font-size:11px;color:var(--text-dim);margin-top:1px;}
+    .mixer-vol{display:flex;align-items:center;gap:8px;margin-top:8px;}
+    .mixer-vol-hidden{display:none;}
+    .vol-slider{
+      -webkit-appearance:none;flex:1;height:4px;
+      background:rgba(255,255,255,.15);border-radius:2px;outline:none;cursor:pointer;
+    }
+    .vol-slider::-webkit-slider-thumb{
+      -webkit-appearance:none;width:15px;height:15px;border-radius:50%;
+      background:var(--primary);box-shadow:0 0 6px rgba(124,159,255,.5);
+    }
+    .vol-label{font-size:11px;color:var(--text-dim);width:26px;text-align:right;}
+    .mixer-toggle{
+      width:44px;height:24px;border-radius:12px;
+      background:rgba(255,255,255,.15);border:none;
+      position:relative;cursor:pointer;transition:background .3s;flex-shrink:0;
+    }
+    .mixer-toggle::after{
+      content:'';position:absolute;top:3px;left:3px;
+      width:18px;height:18px;border-radius:50%;background:white;
+      transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+      box-shadow:0 2px 4px rgba(0,0,0,.3);
+    }
+    .mixer-item.active .mixer-toggle{background:var(--primary);}
+    .mixer-item.active .mixer-toggle::after{transform:translateX(20px);}
+
+    /* ─────────────────────────────────────────
+       Breathe Page
+    ───────────────────────────────────────── */
+    #breathe-page{display:flex;flex-direction:column;align-items:center;}
+    .breathe-container{
+      flex:1;display:flex;flex-direction:column;align-items:center;
+      justify-content:center;padding:32px 24px;gap:28px;
+    }
+    .breathe-ring-wrap{position:relative;width:200px;height:200px;}
+    .breathe-outer{
+      position:absolute;inset:0;border-radius:50%;
+      border:1.5px solid rgba(124,159,255,.2);
+    }
+    .breathe-circle{
+      position:absolute;inset:18px;border-radius:50%;
+      background:radial-gradient(circle,rgba(124,159,255,.35) 0%,rgba(124,159,255,.1) 60%,transparent 100%);
+      border:1.5px solid rgba(124,159,255,.4);
+      display:flex;align-items:center;justify-content:center;
+    }
+    .breathe-circle.inhale {animation:breatheIn  4s ease-in-out forwards;}
+    .breathe-circle.hold   {animation:none;transform:scale(1.25);}
+    .breathe-circle.exhale {animation:breatheOut 6s ease-in-out forwards;}
+    @keyframes breatheIn {from{transform:scale(1);}to{transform:scale(1.25);}}
+    @keyframes breatheOut{from{transform:scale(1.25);}to{transform:scale(1);}}
+    .breathe-phase{font-size:17px;font-weight:300;letter-spacing:3px;text-transform:uppercase;color:var(--primary);}
+    .breathe-count{font-size:40px;font-weight:200;color:rgba(255,255,255,.9);}
+    .breathe-guide{font-size:13px;color:var(--text-dim);text-align:center;line-height:1.6;}
+    .breathe-controls{width:100%;padding:0 28px;display:flex;flex-direction:column;gap:14px;}
+    .breathe-mode-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+    .breathe-mode-btn{
+      padding:11px 14px;border-radius:13px;
+      border:1px solid var(--border);background:var(--card);
+      color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;
+      transition:all .2s;text-align:left;
+    }
+    .breathe-mode-btn .bm-name{font-weight:600;font-size:13px;}
+    .breathe-mode-btn .bm-desc{color:var(--text-dim);margin-top:2px;font-size:11px;}
+    .breathe-mode-btn.selected{background:rgba(124,159,255,.15);border-color:var(--primary);}
+    .breathe-start-btn{
+      padding:15px;border-radius:50px;
+      background:linear-gradient(135deg,var(--primary),var(--accent));
+      border:none;color:white;font-size:15px;font-weight:600;font-family:inherit;cursor:pointer;
+      box-shadow:0 8px 24px rgba(124,159,255,.3);transition:transform .15s,box-shadow .15s;
+    }
+    .breathe-start-btn:active{transform:scale(.97);}
+
+    /* ─────────────────────────────────────────
+       Timer Page
+    ───────────────────────────────────────── */
+    #timer-page{display:flex;flex-direction:column;align-items:center;}
+    .timer-wrap{padding:24px 24px;display:flex;flex-direction:column;align-items:center;gap:24px;width:100%;}
+    .timer-ring-wrap{position:relative;width:220px;height:220px;}
+    #timer-svg{width:220px;height:220px;transform:rotate(-90deg);}
+    #timer-track{fill:none;stroke:rgba(255,255,255,.06);stroke-width:6;}
+    #timer-progress{fill:none;stroke:url(#timerGrad);stroke-width:6;stroke-linecap:round;transition:stroke-dashoffset .5s ease;}
+    .timer-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+    #timer-display{font-size:42px;font-weight:200;letter-spacing:2px;}
+    #timer-label{font-size:12px;color:var(--text-dim);margin-top:4px;}
+    .timer-presets{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;}
+    .timer-preset{
+      padding:9px 18px;border-radius:50px;border:1px solid var(--border);
+      background:var(--card);color:var(--text);font-size:12px;font-family:inherit;cursor:pointer;transition:all .2s;
+    }
+    .timer-preset.selected{background:rgba(124,159,255,.2);border-color:var(--primary);color:var(--primary);}
+    .timer-custom-wrap{width:100%;padding:0 20px;}
+    .timer-custom-wrap label{font-size:12px;color:var(--text-dim);display:block;margin-bottom:8px;}
+    #timer-custom-input{
+      width:100%;background:var(--card);border:1px solid var(--border);
+      border-radius:13px;padding:13px 16px;font-size:16px;color:var(--text);
+      font-family:inherit;text-align:center;outline:none;
+    }
+    #timer-custom-input:focus{border-color:var(--primary);}
+    .timer-fade-wrap{width:100%;padding:0 20px;}
+    .timer-fade-label{display:flex;justify-content:space-between;font-size:12px;color:var(--text-dim);margin-bottom:8px;}
+    #fade-duration-slider{
+      -webkit-appearance:none;width:100%;height:4px;
+      background:rgba(255,255,255,.15);border-radius:2px;outline:none;cursor:pointer;
+    }
+    #fade-duration-slider::-webkit-slider-thumb{
+      -webkit-appearance:none;width:18px;height:18px;border-radius:50%;background:var(--accent);
+    }
+    .timer-action-row{display:flex;gap:12px;padding:0 20px;width:100%;}
+    .btn-secondary{
+      flex:1;padding:14px;border-radius:13px;
+      border:1px solid var(--border);background:var(--card);
+      color:var(--text);font-size:14px;font-family:inherit;cursor:pointer;transition:all .2s;
+    }
+    .btn-secondary:active{background:var(--card-hover);}
+    .btn-primary{
+      flex:2;padding:14px;border-radius:13px;
+      background:linear-gradient(135deg,var(--primary),var(--accent));
+      border:none;color:white;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer;
+      box-shadow:0 6px 20px rgba(124,159,255,.3);transition:all .15s;
+    }
+    .btn-primary:active{transform:scale(.98);}
+
+    /* ─────────────────────────────────────────
+       Toast
+    ───────────────────────────────────────── */
+    #toast{
+      position:fixed;
+      bottom:calc(var(--nav-h) + var(--safe-b) + 80px);
+      left:50%;transform:translateX(-50%) translateY(20px);
+      background:rgba(28,34,60,.95);border:1px solid var(--border);
+      border-radius:50px;padding:10px 20px;font-size:13px;
+      white-space:nowrap;opacity:0;pointer-events:none;
+      transition:all .3s ease;z-index:100;
+      backdrop-filter:blur(12px);
+    }
+    #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+
+    ::-webkit-scrollbar{width:0;}
+  </style>
+</head>
+<body>
+<div id="app">
+  <div id="ambient-bg"></div>
+
+  <div id="pages">
+
+    <!-- ══════════════════ HOME ══════════════════ -->
+    <div id="home-page" class="page active">
+      <div class="page-header">
+        <div class="page-title">眠境 <span style="font-size:14px;font-weight:400;color:var(--text-dim);margin-left:6px;" id="sound-count-badge"></span></div>
+        <div class="page-subtitle">100款声音，打造专属入眠声景</div>
+      </div>
+
+      <!-- Search -->
+      <div class="search-wrap">
+        <input id="search-input" type="search" placeholder="搜索声音… 如：雨声、篝火、432Hz" autocomplete="off" />
+        <span class="search-icon">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+          </svg>
+        </span>
+      </div>
+
+      <!-- Category Tabs -->
+      <div class="cat-tabs-wrap">
+        <div id="category-tabs"></div>
+      </div>
+
+      <div class="section-meta">
+        <span class="section-meta-title">声音场景</span>
+      </div>
+
+      <!-- Sound Grid -->
+      <div class="scene-grid" id="sound-grid"></div>
+
+      <div style="height:16px"></div>
+    </div>
+
+    <!-- ══════════════════ MIXER ══════════════════ -->
+    <div id="mixer-page" class="page">
+      <div class="page-header">
+        <div class="page-title">混音台</div>
+        <div class="page-subtitle">叠加多种声音，调节独立音量</div>
+      </div>
+      <div class="mixer-list" id="mixer-list"></div>
+      <div style="height:16px"></div>
+    </div>
+
+    <!-- ══════════════════ BREATHE ══════════════════ -->
+    <div id="breathe-page" class="page">
+      <div class="page-header">
+        <div class="page-title">呼吸</div>
+        <div class="page-subtitle">放慢呼吸，平静心绪</div>
+      </div>
+      <div class="breathe-container">
+        <div class="breathe-ring-wrap">
+          <div class="breathe-outer"></div>
+          <div class="breathe-circle" id="breathe-circle">
+            <div class="breathe-count" id="breathe-count">—</div>
+          </div>
+        </div>
+        <div class="breathe-phase" id="breathe-phase">准备好了吗</div>
+        <div class="breathe-guide">专注呼吸，感受每一次起伏<br>让思绪随呼气慢慢沉静</div>
+        <div class="breathe-controls">
+          <div class="breathe-mode-grid" id="breathe-mode-grid"></div>
+          <button class="breathe-start-btn" id="breathe-start-btn">开始呼吸</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════ TIMER ══════════════════ -->
+    <div id="timer-page" class="page">
+      <div class="page-header">
+        <div class="page-title">睡眠定时</div>
+        <div class="page-subtitle">声音将自动渐弱停止</div>
+      </div>
+      <div class="timer-wrap">
+        <div class="timer-ring-wrap">
+          <svg id="timer-svg" viewBox="0 0 220 220">
+            <defs>
+              <linearGradient id="timerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+                <stop offset="0%"   stop-color="#7c9fff"/>
+                <stop offset="100%" stop-color="#a78bfa"/>
+              </linearGradient>
+            </defs>
+            <circle id="timer-track"    cx="110" cy="110" r="96"/>
+            <circle id="timer-progress" cx="110" cy="110" r="96"/>
+          </svg>
+          <div class="timer-center">
+            <div id="timer-display">00:00</div>
+            <div id="timer-label">未设置</div>
+          </div>
+        </div>
+
+        <div class="timer-presets" id="timer-presets"></div>
+
+        <div class="timer-custom-wrap">
+          <label>自定义时长（分钟）</label>
+          <input id="timer-custom-input" type="number" min="1" max="480" placeholder="输入分钟数" />
+        </div>
+
+        <div class="timer-fade-wrap">
+          <div class="timer-fade-label">
+            <span>渐弱淡出时长</span>
+            <span id="fade-label-val">2 分钟</span>
+          </div>
+          <input id="fade-duration-slider" type="range" min="0" max="5" step="1" value="2" />
+        </div>
+
+        <div class="timer-action-row">
+          <button class="btn-secondary" id="timer-reset-btn">重置</button>
+          <button class="btn-primary" id="timer-start-btn">开始定时</button>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /pages -->
+
+  <!-- Mini Player -->
+  <div id="mini-player">
+    <div id="mini-player-icon">🌙</div>
+    <div id="mini-player-info">
+      <div id="mini-player-name">眠境</div>
+      <div id="mini-player-sub">正在播放</div>
+    </div>
+    <div id="mini-player-ctrl">
+      <input id="mini-vol-slider" type="range" min="0" max="100" value="70" />
+      <button class="ctrl-btn" id="mini-play-btn">
+        <svg viewBox="0 0 24 24" fill="currentColor" id="mini-play-icon">
+          <rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Bottom Nav -->
+  <nav id="nav">
+    <button class="nav-btn active" data-page="home-page">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M3 12L12 3l9 9M5 10v10a1 1 0 001 1h4v-5h4v5h4a1 1 0 001-1V10"/>
+      </svg>首页
+    </button>
+    <button class="nav-btn" data-page="mixer-page">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M4 6h16M4 12h16M4 18h16"/>
+        <circle cx="8"  cy="6"  r="2" fill="currentColor" stroke="none"/>
+        <circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/>
+        <circle cx="10" cy="18" r="2" fill="currentColor" stroke="none"/>
+      </svg>混音台
+    </button>
+    <button class="nav-btn" data-page="breathe-page">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/>
+        <path d="M9 12a3 3 0 106 0"/>
+      </svg>呼吸
+    </button>
+    <button class="nav-btn" data-page="timer-page">
+      <svg fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path d="M12 22c5.52 0 10-4.48 10-10S17.52 2 12 2 2 6.48 2 12s4.48 10 10 10z"/>
+        <path d="M12 6v6l4 2"/>
+      </svg>定时
+    </button>
+  </nav>
+
+  <div id="toast"></div>
+</div>
+
+<script src="audio.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
